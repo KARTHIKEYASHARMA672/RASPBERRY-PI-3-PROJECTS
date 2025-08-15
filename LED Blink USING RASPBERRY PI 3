@@ -1,0 +1,21 @@
+CONNECTONS:-
+| Component       | RPi Pin (Physical) | GPIO Number | Connection Description                             |
+| --------------- | ------------------ | ----------- | -------------------------------------------------- |
+| LED Anode (+)   | Pin 12             | GPIO18      | Positive leg of LED (with 220Ω resistor in series) |
+| LED Cathode (-) | Pin 6              | GND         | Ground connection                                  |
+
+
+
+CODE:-
+import RPi.GPIO as GPIO
+import time
+
+LED_PIN = 18  # GPIO18 (Pin 12)
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED_PIN, GPIO.OUT)
+
+while True:
+    GPIO.output(LED_PIN, GPIO.HIGH)
+    time.sleep(1)
+    GPIO.output(LED_PIN, GPIO.LOW)
+    time.sleep(1)
