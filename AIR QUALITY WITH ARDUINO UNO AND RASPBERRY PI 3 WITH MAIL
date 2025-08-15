@@ -1,0 +1,164 @@
+TERMINAL COMMANDS:-
+# === Update System ===
+sudo apt update && sudo apt upgrade -y
+
+# === Install Python & pip ===
+sudo apt install python3-pip -y
+
+# === Enable Interfaces ===
+sudo raspi-config nonint do_i2c 0
+sudo raspi-config nonint do_serial 0  # Disable login shell on serial, keep hardware enabled
+
+# === Install Required Python Libraries ===
+pip3 install Adafruit_DHT RPLCD smbus2 requests secure-smtplib
+
+# === Optional: Install Arduino IDE if programming Arduino from Pi ===
+sudo apt install arduino -y
+
+# === Check I2C LCD Address (run manually after wiring) ===
+echo "After wiring, run: sudo i2cdetect -y 1 to check LCD address"
+
+# === Find Arduino Serial Port (run manually after connecting Arduino) ===
+echo "After connecting Arduino, run: ls /dev/ttyACM*"
+
+# === Navigate to Home Directory ===
+cd ~
+
+# === Create Project Folder ===
+mkdir -p dht22_mq135_project
+cd dht22_mq135_project
+
+# === Done ===
+--------------------------------------------------------------------------------------------------------------
+
+CONNECTIONS:-
+| MQ-135 Pin | Arduino Uno Pin |
+| ---------- | --------------- |
+| VCC        | 5V              |
+| GND        | GND             |
+| AOUT       | A0              |
+
+| Arduino Pin | Raspberry Pi Pin | Note           |
+| ----------- | ---------------- | -------------- |
+| USB Cable   | USB Port         | For Serial Com |
+
+| Component Pin   | Raspberry Pi Pin (Physical)   | GPIO No. / Notes |
+| --------------- | ----------------------------- | ---------------- |
+| **DHT22 VCC**   | Pin 1 (3.3V)                  | —                |
+| **DHT22 DATA**  | Pin 7                         | GPIO 4           |
+| **DHT22 GND**   | Pin 6 (GND)                   | —                |
+| **MQ-135 VCC**  | Pin 2 (5V)                    | —                |
+| **MQ-135 GND**  | Pin 9 (GND)                   | —                |
+| **MQ-135 AOUT** | MCP3008 CH0 (for analog read) | Needs MCP3008    |
+| **LCD VCC**     | Pin 2 (5V)                    | —                |
+| **LCD GND**     | Pin 6 (GND)                   | —                |
+| **LCD SDA**     | Pin 3                         | GPIO 2           |
+| **LCD SCL**     | Pin 5                         | GPIO 3           |
+
+--------------------------------------------------------------------------------------------
+ARDIUNO UNO CODE:-
+int mq135_pin = A0;
+
+void setup() {
+  Serial.begin(9600);
+}
+
+void loop() {
+  int mq135_value = analogRead(mq135_pin);
+  Serial.println(mq135_value); // Send value to Raspberry Pi
+  delay(2000);
+}
+-------------------------------------------------------------------------------------------
+RASPBERRY PI 3 CODE:-
+import Adafruit_DHT
+from RPLCD.i2c import CharLCD
+import serial
+import time
+import requests
+import smtplib
+from email.mime.text import MIMEText
+
+# ThingSpeak
+API_KEY = "YOUR_API_KEY"
+THINGSPEAK_URL = "https://api.thingspeak.com/update"
+
+# Email Alert
+SENDER_EMAIL = "your_email@gmail.com"
+SENDER_PASSWORD = "your_password"
+RECEIVER_EMAIL = "recipient_email@gmail.com"
+POLLUTION_THRESHOLD = 200
+
+# DHT22 Setup
+DHT_SENSOR = Adafruit_DHT.DHT22
+DHT_PIN = 4
+
+# LCD Setup
+lcd = CharLCD('PCF8574', 0x27)
+lcd.clear()
+
+# Serial connection to Arduino
+arduino = serial.Serial('/dev/ttyACM0', 9600, timeout=1)
+time.sleep(2)  # Wait for Arduino reset
+
+def send_email_alert(aq_value):
+    msg = MIMEText(f"ALERT! Air Quality High: {aq_value}")
+    msg['Subject'] = "Air Pollution Alert"
+    msg['From'] = SENDER_EMAIL
+    msg['To'] = RECEIVER_EMAIL
+
+    try:
+        server = smtplib.SMTP('smtp.gmail.com', 587)
+        server.starttls()
+        server.login(SENDER_EMAIL, SENDER_PASSWORD)
+        server.sendmail(SENDER_EMAIL, RECEIVER_EMAIL, msg.as_string())
+        server.quit()
+        print("Email sent successfully!")
+    except Exception as e:
+        print(f"Email send error: {e}")
+
+try:
+    while True:
+        humidity, temperature = Adafruit_DHT.read_retry(DHT_SENSOR, DHT_PIN)
+
+        # Read MQ135 value from Arduino
+        if arduino.in_waiting > 0:
+            try:
+                mq135_value = int(arduino.readline().decode().strip())
+            except:
+                mq135_value = None
+        else:
+            mq135_value = None
+
+        if humidity is not None and temperature is not None and mq135_value is not None:
+            # Show on LCD
+            lcd.clear()
+            lcd.write_string(f"T:{temperature:.1f}C H:{humidity:.1f}%")
+            lcd.crlf()
+            lcd.write_string(f"AQ:{mq135_value}")
+
+            # Send to ThingSpeak
+            params = {
+                "api_key": API_KEY,
+                "field1": temperature,
+                "field2": humidity,
+                "field3": mq135_value
+            }
+            requests.get(THINGSPEAK_URL, params=params)
+            print(f"Sent: T={temperature:.1f}C, H={humidity:.1f}%, AQ={mq135_value}")
+
+            # Email alert
+            if mq135_value > POLLUTION_THRESHOLD:
+                send_email_alert(mq135_value)
+
+        else:
+            lcd.clear()
+            lcd.write_string("Sensor Error")
+            print("Sensor read error")
+
+        time.sleep(20)
+
+except KeyboardInterrupt:
+    lcd.clear()
+    arduino.close()
+    print("\nProgram stopped")
+------------------------------------------------------------------------------------------------------
