@@ -1,0 +1,59 @@
+TERMINAL COMMANDS :-
+# Update and upgrade system
+--> sudo apt-get update
+--> sudo apt-get upgrade -y
+
+# Install Python 3 and pip (if not installed)
+--> sudo apt-get install python3 python3-pip -y
+
+# Install RPi.GPIO library
+--> sudo pip3 install RPi.GPIO
+
+# Install LCD library
+--> sudo pip3 install RPLCD
+
+----------------------------------------------------------------------------------------
+
+CONNECTIONS TABLE:-
+| LCD Pin   | Function        | Raspberry Pi GPIO Pin (BCM) | Physical Pin No. |
+| --------- | --------------- | --------------------------- | ---------------- |
+| 1 (VSS)   | GND             | GND                         | 6                |
+| 2 (VDD)   | +5V             | 5V                          | 2                |
+| 3 (V0)    | Contrast        | Potentiometer middle pin    | -                |
+| 4 (RS)    | Register Select | GPIO 26                     | 37               |
+| 5 (RW)    | Read/Write      | GND                         | 6                |
+| 6 (E)     | Enable          | GPIO 19                     | 35               |
+| 11 (D4)   | Data Bit 4      | GPIO 13                     | 33               |
+| 12 (D5)   | Data Bit 5      | GPIO 6                      | 31               |
+| 13 (D6)   | Data Bit 6      | GPIO 5                      | 29               |
+| 14 (D7)   | Data Bit 7      | GPIO 11                     | 23               |
+| 15 (LED+) | Backlight +5V   | 5V through 220Ω resistor    | 2                |
+| 16 (LED-) | Backlight GND   | GND                         | 6                |
+
+---------------------------------------------------------------------------------------------------
+
+CODE:-
+
+import RPi.GPIO as GPIO
+from RPLCD import CharLCD
+from time import sleep
+
+# LCD setup (4-bit mode)
+lcd = CharLCD(numbering_mode=GPIO.BCM,
+              cols=16, rows=2,
+              pin_rs=26, pin_e=19,
+              pins_data=[13, 6, 5, 11])
+
+try:
+    lcd.clear()
+    lcd.write_string("Hello World!")
+    sleep(2)
+    lcd.clear()
+    lcd.write_string("Raspberry Pi 3")
+    lcd.crlf()  # Move to next line
+    lcd.write_string("16x2 LCD Test")
+    sleep(5)
+finally:
+    lcd.clear()
+    GPIO.cleanup()
+------------------------------------------------------------------------------------------------
