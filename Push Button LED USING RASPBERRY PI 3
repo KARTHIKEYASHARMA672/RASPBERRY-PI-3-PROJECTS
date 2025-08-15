@@ -1,0 +1,25 @@
+CONNECTIONS:-
+| Component         | RPi Pin (Physical) | GPIO Number | Connection Description           |
+| ----------------- | ------------------ | ----------- | -------------------------------- |
+| LED Anode (+)     | Pin 12             | GPIO18      | LED positive leg (with resistor) |
+| LED Cathode (-)   | Pin 6              | GND         | LED ground                       |
+| Push Button Pin 1 | Pin 11             | GPIO17      | Reads button state               |
+| Push Button Pin 2 | Pin 6              | GND         | Button ground                    |
+
+
+
+CODE:-
+import RPi.GPIO as GPIO
+
+LED = 18
+BUTTON = 17
+
+GPIO.setmode(GPIO.BCM)
+GPIO.setup(LED, GPIO.OUT)
+GPIO.setup(BUTTON, GPIO.IN, pull_up_down=GPIO.PUD_UP)
+
+while True:
+    if GPIO.input(BUTTON) == GPIO.LOW:
+        GPIO.output(LED, GPIO.HIGH)
+    else:
+        GPIO.output(LED, GPIO.LOW)
